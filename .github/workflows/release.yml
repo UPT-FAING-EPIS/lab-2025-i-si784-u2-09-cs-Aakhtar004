@@ -1,0 +1,83 @@
+name: Release and Publish NuGet
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+        
+    - name: Restore dependencies
+      run: |
+        cd Bank
+        dotnet restore
+        
+    - name: Build project
+      run: |
+        cd Bank
+        dotnet build --no-restore --configuration Release
+        
+    - name: Run tests
+      run: |
+        cd Bank
+        dotnet test --no-build --configuration Release --verbosity normal
+        
+    - name: Update project file with version
+      run: |
+        cd Bank/Bank.Domain
+        # Usar tu código de matrícula como versión (reemplazar 'tu-codigo' con tu código real)
+        VERSION="1.0.aakhtar004"
+        sed -i "s/<\/PropertyGroup>/<Version>$VERSION<\/Version><\/PropertyGroup>/" Bank.Domain.csproj
+        
+    - name: Pack NuGet package
+      run: |
+        cd Bank/Bank.Domain
+        dotnet pack --no-build --configuration Release --output ./nupkg
+        
+    - name: Publish to GitHub Packages
+      run: |
+        cd Bank/Bank.Domain
+        dotnet nuget push ./nupkg/*.nupkg --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --api-key ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        body: |
+          ## Changes
+          - Added Cancelar method to CuentaAhorro class
+          - Added new BDD scenarios for account cancellation
+          - Added comprehensive XML documentation
+          - Automated documentation generation with DocFX
+          - Automated BDD report generation
+          - Automated NuGet package publishing
+        draft: false
+        prerelease: false
+        
+    - name: Upload NuGet package to release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: Bank/Bank.Domain/nupkg/Bank.Domain.1.0.aakhtar004.nupkg
+        asset_name: Bank.Domain.1.0.aakhtar004.nupkg
+        asset_content_type: application/zip
