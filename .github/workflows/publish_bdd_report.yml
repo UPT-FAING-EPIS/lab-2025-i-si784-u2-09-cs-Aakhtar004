@@ -5,6 +5,7 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -18,6 +19,9 @@ concurrency:
 jobs:
   test-and-report:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -35,71 +39,47 @@ jobs:
     - name: Build project
       run: |
         cd Bank
-        dotnet build --no-restore
+        dotnet build --no-restore --configuration Release
         
-    - name: Run tests
+    - name: Run tests and generate TestExecution.json
       run: |
         cd Bank
-        dotnet test --no-build --verbosity normal
+        dotnet test --no-build --configuration Release --logger "trx;LogFileName=TestResults.trx" --results-directory ./TestResults --verbosity normal
         
-    - name: Install living documentation tool
+    - name: Install SpecFlow+ LivingDoc CLI
       run: |
-        cd Bank
-        dotnet tool install --global SpecFlow.Plus.LivingDoc.CLI
+        dotnet tool install --global SpecFlow.Plus.LivingDoc.CLI --version 3.9.57
         
-    - name: Generate living documentation
+    - name: Generate Living Documentation
       run: |
         cd Bank
         mkdir -p BddReport
-        livingdoc test-assembly Bank.Domain.Tests/bin/Debug/net8.0/Bank.Domain.Tests.dll -t Bank.Domain.Tests/bin/Debug/net8.0/TestExecution.json -o BddReport/livingdoc.html
+        # Generar usando el assembly y el archivo TRX
+        livingdoc test-assembly Bank.Domain.Tests/bin/Release/net8.0/Bank.Domain.Tests.dll -t TestResults/TestResults.trx -o BddReport/index.html
       continue-on-error: true
       
-    - name: Create simple BDD report
+    - name: Verify BDD report generation
       run: |
         cd Bank
-        mkdir -p BddReport
-        cat > BddReport/index.html << 'EOF'
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>BDD Test Report</title>
-            <style>
-                body { font-family: Arial, sans-serif; margin: 40px; }
-                .feature { margin: 20px 0; }
-                .scenario { margin: 10px 0 10px 20px; }
-                .passed { color: green; }
-                .failed { color: red; }
-            </style>
-        </head>
-        <body>
-            <h1>BDD Test Report</h1>
-            <div class="feature">
-                <h2>Feature: Como cliente quiero realizar depositos y retiros para modificar mi saldo de cuenta</h2>
-                <div class="scenario passed">
-                    <h3>✓ Scenario: Cliente deposita en su cuenta un monto y es correcto</h3>
-                </div>
-                <div class="scenario passed">
-                    <h3>✓ Scenario: Cliente retira en su cuenta un monto y es correcto</h3>
-                </div>
-                <div class="scenario passed">
-                    <h3>✓ Scenario: Cliente retira en su cuenta un monto negativo y es incorrecto</h3>
-                </div>
-                <div class="scenario passed">
-                    <h3>✓ Scenario: Cliente cancela su cuenta activa correctamente</h3>
-                </div>
-                <div class="scenario passed">
-                    <h3>✓ Scenario: Cliente intenta depositar en cuenta cancelada y es incorrecto</h3>
-                </div>
-            </div>
-        </body>
-        </html>
-        EOF
+        if [ -f "BddReport/index.html" ]; then
+          echo "✅ Living documentation generated successfully"
+          ls -la BddReport/
+        else
+          echo "❌ Living documentation generation failed"
+          echo "Available files:"
+          find . -name "*.trx" -o -name "*.dll" | head -10
+          
+          # Crear un reporte básico como fallback
+          mkdir -p BddReport
+          echo '<!DOCTYPE html><html><head><title>BDD Report</title></head><body><h1>BDD Test Report</h1><p>Living documentation generation failed. Please check the logs.</p></body></html>' > BddReport/index.html
+        fi
         
-    - name: Upload BDD Report
+    - name: Upload BDD Report Artifact
       uses: actions/upload-artifact@v4
       with:
         name: bdd-report
         path: Bank/BddReport/
+        retention-days: 30
         
     - name: Setup Pages
       uses: actions/configure-pages@v4
@@ -109,13 +89,6 @@ jobs:
       with:
         path: './Bank/BddReport'
         
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: test-and-report
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
