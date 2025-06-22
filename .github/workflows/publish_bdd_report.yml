@@ -1,6 +1,8 @@
 name: 3. Generate and Publish BDD Report
+
 env:
   DOTNET_VERSION: '8.0'
+
 on: push
 
 jobs:

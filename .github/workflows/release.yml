@@ -2,6 +2,7 @@ name: 4. Release and Publish NuGet
 
 env:
   DOTNET_VERSION: '8.0'
+  
 on: push
 
 jobs:
