@@ -47,6 +47,14 @@ jobs:
         dotnet tool install -g dotnet-reportgenerator-globaltool
         reportgenerator "-reports:./*/*/*/coverage.cobertura.xml" "-targetdir:Cobertura" -reporttypes:MarkdownSummaryGithub
     
+    - name: Install living Specflow +LivingDoc
+      run: dotnet tool install --global SpecFlow.Plus.LivingDoc.CLI
+
+    - name: Generate BDD Report
+      run: |
+        mkdir -p ReporteBDD
+        livingdoc test-assembly ./Bank.Domain.Tests/bin/Release/net8.0/Bank.Domain.Tests.dll -t ./Bank.Domain.Tests/bin/Release/net8.0/TestExecution.json -o ReporteBDD/index.html
+
     - name: Inicializar DocFX
       run: |
           docfx init -y
