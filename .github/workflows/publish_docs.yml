@@ -80,7 +80,8 @@ jobs:
                   "**/*.{md,yml}"
                 ],
                 "exclude": [
-                  "_site/**"
+                  "_site/**",
+                  "ReporteBDD/index.html"
                 ]
               }
             ],
@@ -152,4 +153,4 @@ jobs:
         publish_dir: Bank/_site
         publish_branch: gh-pages
         destination_dir: docs
-        keep_files: false
+        keep_files: true
