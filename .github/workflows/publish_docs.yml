@@ -80,8 +80,7 @@ jobs:
                   "**/*.{md,yml}"
                 ],
                 "exclude": [
-                  "_site/**",
-                  "ReporteBDD/index.html"
+                  "_site/**"
                 ]
               }
             ],
