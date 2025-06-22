@@ -80,8 +80,7 @@ jobs:
                   "**/*.{md,yml}"
                 ],
                 "exclude": [
-                  "_site/**",
-                  "ReporteBDD/index.html"
+                  "_site/**"
                 ]
               }
             ],
@@ -94,6 +93,11 @@ jobs:
               {
                 "files": [
                   "Cobertura/**"
+                ]
+              },
+              {
+                "files": [
+                  "ReporteBDD/**"
                 ]
               }
             ],
