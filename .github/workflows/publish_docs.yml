@@ -151,4 +151,6 @@ jobs:
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: Bank/_site
-        keep_files: true
+        publish_branch: gh-pages
+        destination_dir: docs
+        keep_files: false
