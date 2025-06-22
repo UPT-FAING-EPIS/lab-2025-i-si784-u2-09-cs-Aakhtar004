@@ -1,94 +1,40 @@
-name: Generate and Publish BDD Report
-
-on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "bdd-pages"
-  cancel-in-progress: false
+name: 3. Generate and Publish BDD Report
+env:
+  DOTNET_VERSION: '8.0'
+on: push
 
 jobs:
-  test-and-report:
+  test-and-publish-coverage:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
+    
     - name: Checkout
       uses: actions/checkout@v4
-      
-    - name: Setup .NET
+    
+    - name: Configurando la versión de NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '8.0.x'
-        
-    - name: Restore dependencies
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    
+    - name: Restore dependencies & Run tests with coverage
       run: |
         cd Bank
         dotnet restore
-        
-    - name: Build project
+        dotnet test --collect:"XPlat Code Coverage"
+    
+    - name: Install living Specflow +LivingDoc
+      run: dotnet tool install --global SpecFlow.Plus.LivingDoc.CLI
+    
+    - name: Generate bdd Report
       run: |
         cd Bank
-        dotnet build --no-restore --configuration Release
-        
-    - name: Run tests and generate TestExecution.json
-      run: |
-        cd Bank
-        dotnet test --no-build --configuration Release --logger "trx;LogFileName=TestResults.trx" --results-directory ./TestResults --verbosity normal
-        
-    - name: Install SpecFlow+ LivingDoc CLI
-      run: |
-        dotnet tool install --global SpecFlow.Plus.LivingDoc.CLI --version 3.9.57
-        
-    - name: Generate Living Documentation
-      run: |
-        cd Bank
-        mkdir -p BddReport
-        # Generar usando el assembly y el archivo TRX
-        livingdoc test-assembly Bank.Domain.Tests/bin/Release/net8.0/Bank.Domain.Tests.dll -t TestResults/TestResults.trx -o BddReport/index.html
-      continue-on-error: true
-      
-    - name: Verify BDD report generation
-      run: |
-        cd Bank
-        if [ -f "BddReport/index.html" ]; then
-          echo "✅ Living documentation generated successfully"
-          ls -la BddReport/
-        else
-          echo "❌ Living documentation generation failed"
-          echo "Available files:"
-          find . -name "*.trx" -o -name "*.dll" | head -10
-          
-          # Crear un reporte básico como fallback
-          mkdir -p BddReport
-          echo '<!DOCTYPE html><html><head><title>BDD Report</title></head><body><h1>BDD Test Report</h1><p>Living documentation generation failed. Please check the logs.</p></body></html>' > BddReport/index.html
-        fi
-        
-    - name: Upload BDD Report Artifact
-      uses: actions/upload-artifact@v4
+        mkdir ReporteBDD
+        livingdoc test-assembly ./Bank.Domain.Tests/bin/Debug/net8.0/Bank.Domain.Tests.dll -t ./Bank.Domain.Tests/bin/Debug/net8.0/TestExecution.json -o ReporteBDD/index.html
+    
+    - name: Deploy bdd report to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v4
       with:
-        name: bdd-report
-        path: Bank/BddReport/
-        retention-days: 30
-        
-    - name: Setup Pages
-      uses: actions/configure-pages@v4
-      
-    - name: Upload pages artifact
-      uses: actions/upload-pages-artifact@v3
-      with:
-        path: './Bank/BddReport'
-        
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: Bank/ReporteBDD
+        destination_dir: ReporteBDD
+        keep_files: true 
